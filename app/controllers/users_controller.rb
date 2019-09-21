@@ -5,10 +5,10 @@ class UsersController < ApplicationController
   # GET /users
   def index
     @users = User.all
-    render json: @users, status: :ok
+    render json: @users
   end
 
-  # GET /users/{username}
+  # GET /users/{name}
   def show
     render json: @user, status: :ok
   end
@@ -24,7 +24,7 @@ class UsersController < ApplicationController
     end
   end
 
-  # PUT /users/{username}
+  # PUT /users/{name}
   def update
     unless @user.update(user_params)
       render json: { errors: @user.errors.full_messages },
@@ -32,14 +32,20 @@ class UsersController < ApplicationController
     end
   end
 
-  # DELETE /users/{username}
+  # DELETE /users/{name}
   def destroy
     @user.destroy
   end
 
   def set_steps
-    if @user && user.authenticate()
-   @current_user.update(steps_param)
+    if current_user?(@user)
+       @current_user.update(steps_param)
+      render json: @current_user, status: :ok
+    else
+      render json: { errors: 'No rights to change' },
+             status: :unprocessable_entity
+    end
+
   end
 
   private
@@ -51,7 +57,7 @@ class UsersController < ApplicationController
   end
 
   def user_params
-    defaults = {steps: Random.rand(100...500), position: 0}
+    defaults = {steps: Random.rand(100...500), position:  0}
     params.permit(
         :name, :email, :password, :password_confirmation
     ).reverse_merge(defaults)
@@ -60,4 +66,11 @@ class UsersController < ApplicationController
   def steps_param
     params.permit(:steps)
   end
+
+  def steps_update
+    if Time.now > Time.now + 2.seconds.to_i
+      @current_user.update(steps: 0)
+    end
+  end
+
 end

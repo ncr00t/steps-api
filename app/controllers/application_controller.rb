@@ -15,4 +15,8 @@ class ApplicationController < ActionController::API
       render json: { errors: e.message }, status: :unauthorized
     end
   end
+
+  def current_user?(user)
+    user == @current_user
+  end
 end
