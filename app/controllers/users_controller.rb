@@ -5,7 +5,15 @@ class UsersController < ApplicationController
   # GET /users
   def index
     @users = User.all
-    render json: @users
+    unless @users.blank?
+      amount = (params[:amount].blank?) ? @users.size
+                                        : params[:amount].to_i
+      top_users = sort_users_by_desc(@users).take(amount)
+      top_users_with_current = top_users.include?(@current_user) ? top_users :
+                                                                   top_users.take(amount - 1)
+                                                                            .push(@current_user)
+      render json: top_users_with_current, status: :ok
+    end
   end
 
   # GET /users/{name}
@@ -45,7 +53,6 @@ class UsersController < ApplicationController
       render json: { errors: 'No rights to change' },
              status: :unprocessable_entity
     end
-
   end
 
   private
@@ -57,7 +64,8 @@ class UsersController < ApplicationController
   end
 
   def user_params
-    defaults = {steps: Random.rand(100...500), position:  0}
+    defaults = {steps: Random.rand(100...5000),
+                position: (@users.blank?) ? 1 : 0}
     params.permit(
         :name, :email, :password, :password_confirmation
     ).reverse_merge(defaults)
@@ -73,4 +81,21 @@ class UsersController < ApplicationController
     end
   end
 
+  def sort_users_by_desc(users)
+    unless users.blank?
+      sorted_users = @users.sort { |current_user, next_user |
+        next_user[:steps] <=> current_user[:steps]
+      }
+      assign_positions_for_users(sorted_users)
+    end
+  end
+
+  def assign_positions_for_users(sorted_users)
+    position = 0
+    sorted_users.each do |user|
+      position += 1
+      user[:position] = position
+    end
+    sorted_users
+  end
 end
