@@ -8,7 +8,7 @@ class UsersController < ApplicationController
     unless @users.blank?
       amount = (params[:amount].blank?) ? @users.size
                                         : params[:amount].to_i
-      top_users = sort_users_by_desc(@users).take(amount)
+      top_users = sort_users_by_desc.take(amount)
       top_users_with_current = top_users.include?(@current_user) ? top_users :
                                                                    top_users.take(amount - 1)
                                                                             .push(@current_user)
@@ -25,6 +25,7 @@ class UsersController < ApplicationController
   def create
     @user = User.new(user_params)
     if @user.save
+      sort_users_by_desc
       render json: @user, status: :created
     else
       render json: { errors: @user.errors.full_messages },
@@ -64,6 +65,7 @@ class UsersController < ApplicationController
   end
 
   def user_params
+    @users = User.all
     defaults = {steps: Random.rand(100...5000),
                 position: (@users.blank?) ? 1 : 0}
     params.permit(
@@ -81,21 +83,27 @@ class UsersController < ApplicationController
     end
   end
 
-  def sort_users_by_desc(users)
-    unless users.blank?
+  def sort_users_by_desc
+    @users = User.all
+    unless @users.blank?
       sorted_users = @users.sort { |current_user, next_user |
         next_user[:steps] <=> current_user[:steps]
       }
-      assign_positions_for_users(sorted_users)
+      assign_user_positions(sorted_users)
     end
   end
 
-  def assign_positions_for_users(sorted_users)
+  def assign_user_positions(sorted_users)
     position = 0
     sorted_users.each do |user|
       position += 1
       user[:position] = position
+      update_user_position(user)
     end
     sorted_users
+  end
+
+  def update_user_position(user)
+    user.update(position: user[:position])
   end
 end
