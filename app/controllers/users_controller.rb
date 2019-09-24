@@ -6,27 +6,26 @@ class UsersController < ApplicationController
   def index
     @users = User.all
     unless @users.blank?
-      amount = (params[:amount].blank?) ? @users.size
-                                        : params[:amount].to_i
-      update_all_user_positions
-      top_users = sort_users_by_desc.take(amount)
-      top_users_with_current = top_users.include?(@current_user) ? top_users :
-                                                                   top_users.take(amount - 1)
-                                                                            .push(@current_user)
-      render json: top_users_with_current, status: :ok
+      @users = User.order(steps: :desc)
+      @users = @users.limit(params[:amount]) if params[:amount]
+      users_json = @users.as_json
+      unless @users.include?(@current_user)
+        users_json.pop
+        users_json << @current_user.as_json
+      end
+      render json: users_json.each_with_index { |user, index| user[:position] = index + 1 }
     end
   end
 
   # GET /users/{name}
   def show
-    render json: @user, status: :ok
+    render json: @user
   end
 
   # POST /users
   def create
     @user = User.new(user_params)
     if @user.save
-      update_user_position(@user)
       render json: @user, status: :created
     else
       render json: { errors: @user.errors.full_messages },
@@ -36,10 +35,9 @@ class UsersController < ApplicationController
 
   # PUT /users/{name}
   def update
-    unless @user.update(user_params)
-      render json: { errors: @user.errors.full_messages },
-             status: :unprocessable_entity
-    end
+    return if @user.update(user_params)
+    render json: { errors: @user.errors.full_messages },
+                   status: :unprocessable_entity
   end
 
   # DELETE /users/{name}
@@ -49,9 +47,8 @@ class UsersController < ApplicationController
 
   def set_steps
     if current_user?(@user)
-       @user.update(steps_param)
-       update_user_position(@user)
-      render json: @user, status: :ok
+      @user.update(steps_param)
+      render json: @user
     else
       render json: { errors: 'No rights to change' },
              status: :unprocessable_entity
@@ -67,48 +64,12 @@ class UsersController < ApplicationController
   end
 
   def user_params
-    @users = User.all
-    defaults = {steps: Random.rand(100...5000), position: (@users.blank?) ? 1 : 0}
     params.permit(
         :name, :email, :password, :password_confirmation
-    ).reverse_merge(defaults)
+    )
   end
 
   def steps_param
     params.permit(:steps)
-  end
-
-  def sort_users_by_desc
-    @users = User.all
-    unless @users.blank?
-      sorted_users = @users.sort { |current_user, next_user |
-        next_user[:steps] <=> current_user[:steps]
-      }
-      assign_user_positions(sorted_users)
-    end
-  end
-
-  def assign_user_positions(sorted_users)
-    position = 0
-    sorted_users.each do |user|
-      position += 1
-      user[:position] = position
-    end
-  end
-
-  def update_all_user_positions
-    sort_users_by_desc.each { |user| user.update(position: user[:position]) }
-  end
-
-  def get_user_position(user_id)
-    sort_users_by_desc.each do |user|
-      if user[:id] == user_id
-        return user[:position]
-      end
-    end
-  end
-
-  def update_user_position(user)
-    user.update(position: get_user_position(user.id))
   end
 end
