@@ -23,7 +23,9 @@ class UsersController < ApplicationController
 
   # GET /users/{name}
   def show
-    render json: @user
+    unless @user
+      render text:"page not found", status: 404
+    end
   end
 
   # POST /users
