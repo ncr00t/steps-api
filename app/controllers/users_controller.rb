@@ -7,13 +7,17 @@ class UsersController < ApplicationController
     @users = User.all
     unless @users.blank?
       @users = User.order(steps: :desc)
-      @users = @users.limit(params[:amount]) if params[:amount]
-      users_json = @users.as_json
-      unless @users.include?(@current_user)
-        users_json.pop
-        users_json << @current_user.as_json
+      @users = @users.each_with_index { |user, index| user[:position] = index + 1 }
+      users = @users.limit(params[:amount]) if params[:amount]
+      users_json = users.as_json
+      unless params[:amount].blank?
+        unless users.include?(@current_user)
+          users_json.pop
+          users_json << @users.find { |user| user if current_user?(user) }
+        end
       end
-      render json: users_json.each_with_index { |user, index| user[:position] = index + 1 }
+      users_json = @users.as_json if params[:amount].blank?
+      render json: users_json.each_with_index {|user, index| user[:position] = index + 1 unless current_user?(user)}
     end
   end
 
@@ -28,16 +32,14 @@ class UsersController < ApplicationController
     if @user.save
       render json: @user, status: :created
     else
-      render json: { errors: @user.errors.full_messages },
-             status: :unprocessable_entity
+      render_error(@user.errors.full_messages, :unprocessable_entity)
     end
   end
 
   # PUT /users/{name}
   def update
     return if @user.update(user_params)
-    render json: { errors: @user.errors.full_messages },
-                   status: :unprocessable_entity
+    render_error(@user.errors.full_messages,:unprocessable_entity)
   end
 
   # DELETE /users/{name}
@@ -50,8 +52,7 @@ class UsersController < ApplicationController
       @user.update(steps_param)
       render json: @user
     else
-      render json: { errors: 'No rights to change' },
-             status: :unprocessable_entity
+      render_error('No rights to change', :unprocessable_entity)
     end
   end
 
@@ -60,7 +61,7 @@ class UsersController < ApplicationController
   def find_user
     @user = User.find_by_name(params[:name])
   rescue ActiveRecord::RecordNotFound
-    render json: { errors: 'User not found' }, status: :not_found
+    render_error('User not found', :not_found)
   end
 
   def user_params

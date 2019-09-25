@@ -1,6 +1,7 @@
 class ApplicationController < ActionController::API
-  def not_found
-    render json: { error: 'not_found' }
+
+  def render_error(message, status)
+    render json: { error: message }, status: status
   end
 
   def authorize_request

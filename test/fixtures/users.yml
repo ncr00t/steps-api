@@ -13,3 +13,7 @@ two:
   password_digest: MyString
   position: 1
   steps: 1
+
+valid:
+  name: user1
+  email: user1@gmail.com

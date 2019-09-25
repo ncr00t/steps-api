@@ -1,13 +1,10 @@
 set :output, "log/cron.log"
-set :environment, "development"
+set :environment, 'development'
 
-if Rails.env == "development"
-  set :output, {error: "log/cron-error.log", standard: "log/cron.log"}
-  set :output, "log/cron_log.log"
-  set :environment, :development
-  env :PATH, ENV['PATH']
-end
+job_type :runner,  "cd :path && rvm use 2.6.4 && rails runner -e :environment ':task' :output"
+job_type :command, "cd :path && :task :output"
 
-every 1.minutes do
-  runner "User.reset_steps"
+every 24.hours do
+  runner "User.steps_reset"
+  command "echo 'Steps reset successful!'"
 end
